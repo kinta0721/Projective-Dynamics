@@ -361,11 +361,11 @@ void Simulation::computeExternalForce()
 
     // gravity
   	// Inprement Here !! //
-		// Hint: use "m_ExternalForce(i, 1) = ?"
-	m_gravity_constant = 0;
+	// Hint: use "m_ExternalForce(i, 1) = ?"
+	m_gravity_constant = 100;
 	for (unsigned int i = 0; i < m_mesh->m_vert_num; ++i)
 	{
-	//m_ExternalForce(i, 1) =  -1.0*m_MassMat.coeffRef(i , i) *  m_gravity_constant;
+	m_ExternalForce(i, 1) =  -1.0*m_MassMat.coeffRef(i , i) *  m_gravity_constant;
 	}
 }
 
@@ -404,7 +404,6 @@ void Simulation::integrateOptimizationMethod()
     // update q_{n+1}
    
 	
-	
 	updatePosAndVel(pos_next);
 	
 }
@@ -424,23 +423,23 @@ bool Simulation::integrateLocalGlobalOneIteration(EigenMatrixXs& X)
 	
 
 	//XÇÃçXêVëÃêœï€ë∂
-//
-//#pragma omp parallel for
-//
-//	for (int i = 0; i < m_T->rows(); i++) {
-//
-//
-//		EigenMatrix3 F = (Jv.block(i * 3, 0, 3, 3)).transpose();
-//		EigenMatrix3 B = m_B[i].inverse();
-//		uint tet_list[4] = { (*m_T)(i, 0), (*m_T)(i, 1),(*m_T)(i, 2), (*m_T)(i, 3) };
-//		
-//		volumeconservation(F, B, tet_list, X);
-//
-//	}
-//
-//
-//
-//
+
+#pragma omp parallel for
+
+	for (int i = 0; i < m_T->rows(); i++) {
+
+
+		EigenMatrix3 F = (Jv.block(i * 3, 0, 3, 3)).transpose();
+		EigenMatrix3 B = m_B[i].inverse();
+		uint tet_list[4] = { (*m_T)(i, 0), (*m_T)(i, 1),(*m_T)(i, 2), (*m_T)(i, 3) };
+		
+		volumeconservation(F, B, tet_list, X);
+
+	}
+
+
+
+
 	std::cout << "local step"<< std::endl;
 	// global step
 	EigenMatrixXs b(m_mesh->m_vert_num, 3);
@@ -486,12 +485,12 @@ std::cout << "writingX" << std::endl;//sum1:x2x4ÇÃåWêî
 
 	
 	// add attachment constraint
-	/*for (std::vector<Constraint*>::iterator it_c = m_constraints.begin(); it_c != m_constraints.end(); ++it_c)
+	for (std::vector<Constraint*>::iterator it_c = m_constraints.begin(); it_c != m_constraints.end(); ++it_c)
 	{
 		(*it_c)->computeJVector(X, b);
 	
 	}
-*/
+
 	// add effect of inertia
 	// Inprement Here !! //
 	// Hint: use "b = ?"
@@ -502,16 +501,16 @@ std::cout << "writingX" << std::endl;//sum1:x2x4ÇÃåWêî
 	inertial.setZero();
 	std::cout << "computing inertia" << std::endl;//sum1:x2x4ÇÃåWêî
 
-	//for (int i = 0; i < m_mesh->m_vert_num; i++) {
-	//	for (int j = 0; j < 3; j++) {
-	//		inertial.coeffRef(i, j) = m_MassMat.coeff(i, i)*m_Inertia.coeff(i, j) / (m_h*m_h);
-	//	}
-	//}
-	//
+	for (int i = 0; i < m_mesh->m_vert_num; i++) {
+		for (int j = 0; j < 3; j++) {
+			inertial.coeffRef(i, j) = m_MassMat.coeff(i, i)*m_Inertia.coeff(i, j) / (m_h*m_h);
+		}
+	}
+	
 	for (int i = 0; i < m_mesh->m_vert_num; i++) {
 			for (int j = 0; j < 3; j++) {
 
-				b(i, j) = b(i, j);// +inertial(i, j) + m_ExternalForce.coeff(i, j);
+				b(i, j) = b(i, j)+inertial(i, j) + m_ExternalForce.coeff(i, j);
 
 		}
 
@@ -618,9 +617,9 @@ void Simulation::volumeconservation(EigenMatrix3 &F, EigenMatrix3 &B, const unsi
 		EigenMatrix3 SIGMA_new, DS;
 		//clamp
 		//glm::clamp CLAMP;
-		SIGMA_new << clamp(SIGMA(0, 0), min, max), 0.0, 0.0,
-			0.0, clamp(SIGMA(1, 0), min, max), 0.0,
-			0.0, 0.0, clamp(SIGMA(2, 0), min, max);
+		SIGMA_new << clamp(SIGMA(0, 0),min, max),                          0.0,                          0.0,
+		                   	                 0.0, clamp(SIGMA(1, 0), min, max),                          0.0,
+			                                 0.0,                          0.0, clamp(SIGMA(2, 0), min, max);
 
 
 		EigenMatrix3  F_new;
@@ -638,11 +637,13 @@ void Simulation::volumeconservation(EigenMatrix3 &F, EigenMatrix3 &B, const unsi
 		EigenVector3 meanpos = 1 / 4.0*((X.row(tet_list[0])).transpose() +( X.row(tet_list[1])).transpose() +( X.row(tet_list[2])).transpose() + (X.row(tet_list[3])).transpose());
 		EigenVector3 newpos[4];
 //check
-		newpos[3] = meanpos - 1 / 4.0*(DS.col(0) + DS.col(1) + DS.col(2));// -X.row(tet_list[3]).transpose();
-		newpos[0] = newpos[3] + DS.col(0)- X.row(tet_list[0]).transpose();
+		newpos[3] = meanpos - 1 / 4.0*(DS.col(0) + DS.col(1) + DS.col(2));
+
+
+		newpos[0] = newpos[3] + DS.col(0) - X.row(tet_list[0]).transpose();
 		newpos[1] = newpos[3] + DS.col(1) - X.row(tet_list[1]).transpose();
 		newpos[2] = newpos[3] + DS.col(2) - X.row(tet_list[2]).transpose();
-		newpos[3] = newpos[3]- X.row(tet_list[3]).transpose();
+		newpos[3] = newpos[3]             - X.row(tet_list[3]).transpose();
 
 		for (int i = 0; i < 4; i++) {
 
@@ -815,7 +816,7 @@ void Simulation::prefactorize()
 
 	// Hint: "A = ?"
 	setLaplacianMat();
-	A = m_LaplacianMat;// +m_MassMat / h2;
+	A = m_LaplacianMat +m_MassMat / h2;
 	
 	factorizeDirectSolverLLT(A, m_prefactored_LLTsolver);
 
