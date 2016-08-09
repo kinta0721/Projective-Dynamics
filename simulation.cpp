@@ -402,7 +402,10 @@ void Simulation::integrateOptimizationMethod()
 	std::cout << "ˆÊ’uXV" << std::endl;
 
     // update q_{n+1}
-    updatePosAndVel(pos_next);
+   
+	
+	
+	updatePosAndVel(pos_next);
 	
 }
 bool Simulation::integrateLocalGlobalOneIteration(EigenMatrixXs& X)
