@@ -48,11 +48,11 @@ void Simulation::update()
 	//preComputation();
     // update inertia term
     computeInertia();
-
+	
     // update external force
     computeExternalForce();
 
-    // update cloth
+	// update cloth
     switch (m_integration_method)
     {
     case INTEGRATION_LOCAL_GLOBAL:
@@ -245,13 +245,16 @@ void Simulation::preComputation()
 	m_W.clear();
 	// Inprement Here !! //
 	// Hint: compute and push_back "m_B" and "m_W//
-	
-	for (int i = 0; i < m_T->rows(); ++i) {
+	int  j,p;
+
+
+	for ( int i= 0; i < m_T->rows(); ++i) {
 		EigenMatrix3 m_B_element;
 		ScalarType   m_W_element;
-		for (int j = 0; j < 3; j++) {
-
-			for (int p = 0; p < 3; p++) {
+#pragma omp parallel for	
+		for (j = 0; j < 3; j++) {
+#pragma omp parallel for	
+			for ( p = 0; p < 3; p++) {
 				m_B_element(p, j) = (*m_V)((*m_T)(i, j), p) - (*m_V)((*m_T)(i, 3), p);
 
 			}
@@ -259,7 +262,7 @@ void Simulation::preComputation()
 
 
 		}
-		//m_W_element = 1 / 6.0* (m_B_element).determinant();
+		
 		m_W_element = 1 / 6.0*  fabs((m_B_element).determinant());//*/
 		m_B.push_back(m_B_element.inverse());
 		m_W.push_back(m_W_element);
@@ -269,7 +272,10 @@ void Simulation::preComputation()
 		ScalarType ModelVolume;
 		for (uint i = 0; i < m_T->rows(); ++i) { ModelVolume += m_W[i]; }
 		m_MassMat *= (m_mesh->m_total_mass) / ModelVolume;
-
+	
+		prefactorize();//LÇÃåvéZ
+		setJacobianMat();//jacobian åvéZ
+ 
 
 		m_precomputation_flag = true;
 		std::cout << "preComputing...end" << std::endl;
@@ -344,7 +350,7 @@ void Simulation::computeInertia()
 {
 	// Inprement Here !! //
 	// Hint: use "m_Inertia = ?"
-	std::cout << "ì‡óÕåvéZ" << std::endl;
+	std::cout << "compute inertial" << std::endl;
 
 	m_Inertia.setZero();
 	for (int y = 0; y < m_mesh->m_vert_num; ++y) {
@@ -356,7 +362,8 @@ void Simulation::computeInertia()
 
 void Simulation::computeExternalForce()
 {
-    
+	std::cout << "computingexternal" << endl;
+
 	m_ExternalForce.setZero();
 
     // gravity
@@ -399,19 +406,23 @@ void Simulation::integrateOptimizationMethod()
             break;
         }
     }
-	std::cout << "à íuçXêV" << std::endl;
+	std::cout << "update" << std::endl;
 
     // update q_{n+1}
-   
-	
-	updatePosAndVel(pos_next);
+   updatePosAndVel(pos_next);
 	
 }
 bool Simulation::integrateLocalGlobalOneIteration(EigenMatrixXs& X)
 {
 
-	prefactorize();//LÇÃåvéZ
-	setJacobianMat();//jacobian åvéZ
+	std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
+	char fname[30];
+	char fname1[30];
+
+	sprintf(fname, "vert%d.csv", a);
+	std::ofstream ofs(fname);
+	sprintf(fname1, "rotmat%d.csv", a);
+	std::ofstream ofs1(fname1);
 
 	//// local step
 	EigenMatrixXs RotMat(m_T->rows() * 3, 3);       // (#TetNum*dim) * dim
@@ -419,37 +430,59 @@ bool Simulation::integrateLocalGlobalOneIteration(EigenMatrixXs& X)
 	
 	computeRotMat(RotMat, Jv);
 
+	for (int l = 0; l < m_T->rows(); l++) {
 
-	
-
-	//XÇÃçXêVëÃêœï€ë∂
-
-#pragma omp parallel for
-
-	for (int i = 0; i < m_T->rows(); i++) {
-
-
-		EigenMatrix3 F = (Jv.block(i * 3, 0, 3, 3)).transpose();
-		EigenMatrix3 B = m_B[i].inverse();
-		uint tet_list[4] = { (*m_T)(i, 0), (*m_T)(i, 1),(*m_T)(i, 2), (*m_T)(i, 3) };
-		
-		volumeconservation(F, B, tet_list, X);
-
+		for (int j = 0; j < 3; j++) {
+			for (int k = 0; k < 3; k++) {
+				ofs1 << RotMat(3*l+j, k) << ",";
+			}
+			ofs1 << std::endl;
+		}
+		ofs1 << std::endl;
 	}
 
 
+	a++;
+
+//
+//	XÇÃçXêVëÃêœï€ë∂
+//
+//#pragma omp parallel for
+//
+//	for (int i = 0; i < m_T->rows(); i++) {
+//
+//
+//		EigenMatrix3 F = (Jv.block(i * 3, 0, 3, 3)).transpose();
+//		EigenMatrix3 B = m_B[i].inverse();
+//		uint tet_list[4] = { (*m_T)(i, 0), (*m_T)(i, 1),(*m_T)(i, 2), (*m_T)(i, 3) };
+//		
+//		volumeconservation(F, B, tet_list, X);
+//
+//	}
+//
+//
 
 
 	std::cout << "local step"<< std::endl;
 	// global step
-	EigenMatrixXs b(m_mesh->m_vert_num, 3);
-	b.setZero();
+	
 
 	// Inprement Here !! //
 	// Hint: use "b = ?"
 	// Hint: you should not add inertia yet
 	//  b=jrÇì¸ÇÍÇƒ
+	for (int i = 0; i < m_mesh->m_vert_num; i++) {
 
+		for (int j = 0; j < 3; j++) {
+
+			ofs << X(i, j) << ",";
+
+		}
+		ofs << std::endl;
+
+	}
+	EigenMatrixXs b(m_mesh->m_vert_num, 3);
+	b.setZero();
 
 	int i, j,k;
 #pragma omp parallel for
@@ -463,23 +496,29 @@ bool Simulation::integrateLocalGlobalOneIteration(EigenMatrixXs& X)
 
 #pragma omp parallel for
 			for (k = 0; k < 3; k++) {
-			
-
-
-
-				
-					double rij = RotMat(3 * i + j, k);// *2.0;
+				double rjk = RotMat(3 * i + j, k);// *2.0;
 					for (int p = 0; p < m_mesh->m_vert_num; p++) {
 
-						b(p, j) = b(p, j) + m_JacobianMat.coeff(3 * i + k, p) *rij;
+						b(p, j) = b(p, j) + m_JacobianMat.coeff(3 * i + k, p) *rjk;
 						
-				}
+					}
 			}
 
 		}
 
 
 	
+	}
+
+	for (int i = 0; i < m_mesh->m_vert_num; i++) {
+
+		for (int j = 0; j < 3; j++) {
+
+			ofs << b(i, j) << ",";
+
+		}
+		ofs << std::endl;
+
 	}
 std::cout << "writingX" << std::endl;//sum1:x2x4ÇÃåWêî
 
@@ -510,7 +549,7 @@ std::cout << "writingX" << std::endl;//sum1:x2x4ÇÃåWêî
 	for (int i = 0; i < m_mesh->m_vert_num; i++) {
 			for (int j = 0; j < 3; j++) {
 
-				b(i, j) = b(i, j)+inertial(i, j) + m_ExternalForce.coeff(i, j);
+			//	b(i, j) = b(i, j);// +inertial(i, j) + m_ExternalForce.coeff(i, j);
 
 		}
 
@@ -523,7 +562,6 @@ std::cout << "writingX" << std::endl;//sum1:x2x4ÇÃåWêî
 	X.col(i) = m_prefactored_LLTsolver.solve(b.col(i));
 
 
-//	X = m_prefactored_LLTsolver.solve(b);
 
 	}
 
@@ -543,7 +581,7 @@ void Simulation::computeRotMat(EigenMatrixXs& RotMat, const EigenMatrixXs& Jv)
 	//// Hint: use "SVD"
 
 //#pragma omp parallel {
-
+	int num = 0;
 #pragma omp parallel for
 
 	for (int i = 0; i < m_T->rows(); i++) {
@@ -561,8 +599,8 @@ void Simulation::computeRotMat(EigenMatrixXs& RotMat, const EigenMatrixXs& Jv)
 		V = svd.matrixV();
 		RotMat.block(3 * i, 0, 3, 3) = U * (V.transpose());
 
-		//RotMat.block(3 * i, 0, 3, 3) = (U * V.transpose()).determinant()*U * (V.transpose());
-}
+		
+	}
 }
 //computeElementJacobianMat(m_B[i], m_W[i], tet_list, i, j_triplets);
 
@@ -693,14 +731,14 @@ void Simulation::computeElementLaplacianMat(const EigenMatrix3 &B, const ScalarT
 				if (i == j) {
 
 					for (int k = 0; k < 3; k++) {
-						l_triplets.push_back(SparseMatrixTriplet(tet_list[i], tet_list[i], m_myu * 1.0 * W  * B(i, k) * B(i, k)));
+						l_triplets.push_back(SparseMatrixTriplet(tet_list[i], tet_list[i], m_myu * 2.0 * W  * B(i, k) * B(i, k)));
 					}
 
 				}
 				else {
 					for (int k = 0; k < 3; k++) {
-						l_triplets.push_back(SparseMatrixTriplet(tet_list[j], tet_list[i], m_myu * 1.0 * W  * B(i, k) * B(j, k)));
-						l_triplets.push_back(SparseMatrixTriplet(tet_list[i], tet_list[j], m_myu * 1.0 * W  * B(i, k) * B(j, k)));
+						l_triplets.push_back(SparseMatrixTriplet(tet_list[j], tet_list[i], m_myu * 2.0 * W  * B(i, k) * B(j, k)));
+						l_triplets.push_back(SparseMatrixTriplet(tet_list[i], tet_list[j], m_myu * 2.0 * W  * B(i, k) * B(j, k)));
 					}
 				}
 			}
@@ -713,8 +751,8 @@ void Simulation::computeElementLaplacianMat(const EigenMatrix3 &B, const ScalarT
 					sum += B(k, i)*B(j, i);
 				}
 			}
-			l_triplets.push_back(SparseMatrixTriplet(tet_list[k], tet_list[3], m_myu * W * -1.0 * sum));
-			l_triplets.push_back(SparseMatrixTriplet(tet_list[3], tet_list[k], m_myu * W * -1.0 * sum));
+			l_triplets.push_back(SparseMatrixTriplet(tet_list[k], tet_list[3], m_myu * W * -2.0 * sum));
+			l_triplets.push_back(SparseMatrixTriplet(tet_list[3], tet_list[k], m_myu * W * -2.0 * sum));
 
 		}
 
@@ -727,7 +765,7 @@ void Simulation::computeElementLaplacianMat(const EigenMatrix3 &B, const ScalarT
 				beki_sum += B(j, i);
 			}
 
-			l_triplets.push_back(SparseMatrixTriplet(tet_list[3], tet_list[3], m_myu * W * 1.0*beki_sum *beki_sum));
+			l_triplets.push_back(SparseMatrixTriplet(tet_list[3], tet_list[3], m_myu * W * 2.0*beki_sum *beki_sum));
 
 
 		}
@@ -748,8 +786,8 @@ void Simulation::computeElementJacobianMat(const EigenMatrix3 &B, const ScalarTy
 			for (j = 0; j < 3; j++) {//1234
 
 			
-				j_triplets.push_back(SparseMatrixTriplet(ele_num * 3 + i, tet_list[j], 1.0*m_myu * W * B(j, i)));
-				j_triplets.push_back(SparseMatrixTriplet(ele_num * 3 + i, tet_list[3], -1.0*m_myu * W * B(j, i)));
+				j_triplets.push_back(SparseMatrixTriplet(ele_num * 3 + i, tet_list[j], -2.0*m_myu * W * B(j, i)));
+				j_triplets.push_back(SparseMatrixTriplet(ele_num * 3 + i, tet_list[3], 2.0*m_myu * W * B(j, i)));
 
 			}
 		}
@@ -816,7 +854,7 @@ void Simulation::prefactorize()
 
 	// Hint: "A = ?"
 	setLaplacianMat();
-	A = m_LaplacianMat +m_MassMat / h2;
+	A = m_LaplacianMat;// +m_MassMat / h2;
 	
 	factorizeDirectSolverLLT(A, m_prefactored_LLTsolver);
 
