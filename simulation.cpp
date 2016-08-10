@@ -36,7 +36,7 @@ void Simulation::reset()
 
 	setReprecomputeFlag();
     setReprefactorFlag();
-
+	convertLameConstant();
 	setupConstraints();
 	preComputation();
 
@@ -71,8 +71,8 @@ void Simulation::update()
 
 void Simulation::convertLameConstant()
 {
-	//m_young = 100;
-	//m_poisson = 1;
+	m_young = 20;
+	m_poisson = 0;
 	m_myu = m_young / (2.f * (1.f + m_poisson));
 	m_lambda = m_young * m_poisson / ((1.f + m_poisson)*(1.f - 2.f*m_poisson));
 }
@@ -263,7 +263,8 @@ void Simulation::preComputation()
 
 		}
 		
-		m_W_element = 1 / 6.0*  fabs((m_B_element).determinant());//*/
+	m_W_element = 1 / 6.0*  fabs((m_B_element).determinant());//*/
+//		m_W_element = 1 / 6.0*  (m_B_element).determinant();//*/
 		m_B.push_back(m_B_element.inverse());
 		m_W.push_back(m_W_element);
 	}
@@ -414,6 +415,7 @@ void Simulation::integrateOptimizationMethod()
 }
 bool Simulation::integrateLocalGlobalOneIteration(EigenMatrixXs& X)
 {
+	a++;
 
 	std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
 	char fname[30];
@@ -442,7 +444,6 @@ bool Simulation::integrateLocalGlobalOneIteration(EigenMatrixXs& X)
 	}
 
 
-	a++;
 
 //
 //	X‚ÌXV‘ÌÏ•Û‘¶
@@ -471,16 +472,7 @@ bool Simulation::integrateLocalGlobalOneIteration(EigenMatrixXs& X)
 	// Hint: use "b = ?"
 	// Hint: you should not add inertia yet
 	//  b=jr‚ð“ü‚ê‚Ä
-	for (int i = 0; i < m_mesh->m_vert_num; i++) {
 
-		for (int j = 0; j < 3; j++) {
-
-			ofs << X(i, j) << ",";
-
-		}
-		ofs << std::endl;
-
-	}
 	EigenMatrixXs b(m_mesh->m_vert_num, 3);
 	b.setZero();
 
@@ -495,7 +487,7 @@ bool Simulation::integrateLocalGlobalOneIteration(EigenMatrixXs& X)
 		for (j = 0; j < 3; j++) {//xyz
 
 #pragma omp parallel for
-			for (k = 0; k < 3; k++) {
+			for (k = 0; k < 3; k++) {//ƒ„ƒRƒrƒAƒ“‚Ìsî•ñ
 				double rjk = RotMat(3 * i + j, k);// *2.0;
 					for (int p = 0; p < m_mesh->m_vert_num; p++) {
 
@@ -519,7 +511,8 @@ bool Simulation::integrateLocalGlobalOneIteration(EigenMatrixXs& X)
 		}
 		ofs << std::endl;
 
-	}
+	}  
+
 std::cout << "writingX" << std::endl;//sum1:x2x4‚ÌŒW”
 
 	
@@ -559,11 +552,21 @@ std::cout << "writingX" << std::endl;//sum1:x2x4‚ÌŒW”
 	std::cout << "computing X" << std::endl;//sum1:x2x4‚ÌŒW”
 
 	for (int i = 0; i < 3; i++) {
-	X.col(i) = m_prefactored_LLTsolver.solve(b.col(i));
+		X.col(i) = m_prefactored_LLTsolver.solve(b.col(i));
+		//X = m_prefactored_LLTsolver.solve(b);
+	}
+	for (int i = 0; i < m_mesh->m_vert_num; i++) {
 
+		for (int j = 0; j < 3; j++) {
 
+			ofs << X(i, j) << ",";
+
+		}
+		ofs << std::endl;
 
 	}
+
+//	}
 
 //	std::cout << "global step" << std::endl;
 
@@ -597,7 +600,7 @@ void Simulation::computeRotMat(EigenMatrixXs& RotMat, const EigenMatrixXs& Jv)
 		Eigen::JacobiSVD< EigenMatrix3 >svd(F, Eigen::ComputeFullU | Eigen::ComputeFullV);
 		U = svd.matrixU();
 		V = svd.matrixV();
-		RotMat.block(3 * i, 0, 3, 3) = U * (V.transpose());
+		RotMat.block(3 * i, 0, 3, 3) =U * (V.transpose());
 
 		
 	}
@@ -725,25 +728,22 @@ void Simulation::singularValueDecomp(EigenMatrix3& U, EigenVector3& SIGMA, Eigen
 void Simulation::computeElementLaplacianMat(const EigenMatrix3 &B, const ScalarType W, const unsigned int tet_list[], std::vector<SparseMatrixTriplet>& l_triplets)
 {	
 //#pragma omp parallel for
-
+	//m_myu = 2.0;
 		for (int i = 0; i < 3; i++) {
 			for (int j = i; j < 3; j++) {
 				if (i == j) {
-
 					for (int k = 0; k < 3; k++) {
-						l_triplets.push_back(SparseMatrixTriplet(tet_list[i], tet_list[i], m_myu * 2.0 * W  * B(i, k) * B(i, k)));
+						l_triplets.push_back(SparseMatrixTriplet(tet_list[i], tet_list[i], m_myu * 1.0 * W  * B(i, k) * B(i, k)));
 					}
-
 				}
 				else {
 					for (int k = 0; k < 3; k++) {
-						l_triplets.push_back(SparseMatrixTriplet(tet_list[j], tet_list[i], m_myu * 2.0 * W  * B(i, k) * B(j, k)));
-						l_triplets.push_back(SparseMatrixTriplet(tet_list[i], tet_list[j], m_myu * 2.0 * W  * B(i, k) * B(j, k)));
+						l_triplets.push_back(SparseMatrixTriplet(tet_list[j], tet_list[i], m_myu * 1.0 * W  * B(i, k) * B(j, k)));
+						l_triplets.push_back(SparseMatrixTriplet(tet_list[i], tet_list[j], m_myu * 1.0 * W  * B(i, k) * B(j, k)));
 					}
 				}
 			}
 		}
-
 		for (int k = 0; k < 3; k++) {
 			double sum = 0;
 			for (int i = 0; i < 3; i++) {
@@ -751,25 +751,16 @@ void Simulation::computeElementLaplacianMat(const EigenMatrix3 &B, const ScalarT
 					sum += B(k, i)*B(j, i);
 				}
 			}
-			l_triplets.push_back(SparseMatrixTriplet(tet_list[k], tet_list[3], m_myu * W * -2.0 * sum));
-			l_triplets.push_back(SparseMatrixTriplet(tet_list[3], tet_list[k], m_myu * W * -2.0 * sum));
-
+			l_triplets.push_back(SparseMatrixTriplet(tet_list[k], tet_list[3], m_myu * W * -1.0 * sum));
+			l_triplets.push_back(SparseMatrixTriplet(tet_list[3], tet_list[k], m_myu * W * -1.0 * sum));
 		}
-
-
 		for (int i = 0; i < 3; i++) {
 			double beki_sum = 0;
-
 			for (int j = 0; j < 3; j++) {
-
 				beki_sum += B(j, i);
 			}
-
-			l_triplets.push_back(SparseMatrixTriplet(tet_list[3], tet_list[3], m_myu * W * 2.0*beki_sum *beki_sum));
-
-
+			l_triplets.push_back(SparseMatrixTriplet(tet_list[3], tet_list[3], m_myu * W * 1.0*beki_sum *beki_sum));
 		}
-	
 }
 
 
@@ -779,16 +770,13 @@ void Simulation::computeElementJacobianMat(const EigenMatrix3 &B, const ScalarTy
 //	// Small Hint: use "m_myu"
 
 	int i,j;
-	
+//	m_myu = 2.0;
 
 		for ( i = 0; i < 3; i++) {//xyz
 
 			for (j = 0; j < 3; j++) {//1234
-
-			
-				j_triplets.push_back(SparseMatrixTriplet(ele_num * 3 + i, tet_list[j], -2.0*m_myu * W * B(j, i)));
-				j_triplets.push_back(SparseMatrixTriplet(ele_num * 3 + i, tet_list[3], 2.0*m_myu * W * B(j, i)));
-
+				j_triplets.push_back(SparseMatrixTriplet(ele_num * 3 + i, tet_list[j], 1.0* m_myu * W * B(j, i)));
+				j_triplets.push_back(SparseMatrixTriplet(ele_num * 3 + i, tet_list[3], -1.0 * m_myu * W * B(j, i)));
 			}
 		}
 	
@@ -854,7 +842,7 @@ void Simulation::prefactorize()
 
 	// Hint: "A = ?"
 	setLaplacianMat();
-	A = m_LaplacianMat;// +m_MassMat / h2;
+	A = m_LaplacianMat;// *h2;// +m_MassMat / h2;
 	
 	factorizeDirectSolverLLT(A, m_prefactored_LLTsolver);
 
