@@ -35,7 +35,7 @@ void Scene::LoadFromFile(const char* file_name)
 
 void Scene::Draw(const VBO& vbos)
 {
-    for(std::vector<Primitive*>::iterator iter = m_primitives.begin(); iter != m_primitives.end(); ++iter)
+    for (std::vector<Primitive*>::iterator iter = m_primitives.begin(); iter != m_primitives.end(); ++iter)
     {
         (*iter)->Draw(vbos);
     }
@@ -71,7 +71,8 @@ void Scene::InsertPrimitve(Primitive* const new_primitive)
 }
 
 #ifdef VS2010
-//----------Scene Visitor Class----------//
+//----------
+Visitor Class----------//
 XMLSceneVisitor::XMLSceneVisitor(Scene* const scene) : 
     TiXmlVisitor(),
     m_scene(scene),

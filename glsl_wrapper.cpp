@@ -151,10 +151,10 @@ char* RenderWrapper::textFileRead(const char* fileName)
     char* text = NULL;
 
     if (fileName != NULL) {
-		FILE *file;
+        FILE *file;
 
-		fopen_s(&file, fileName, "rt");
-		if(file != NULL) {
+        fopen_s(&file, fileName, "rt");
+        if(file != NULL) {
 
             fseek(file, 0, SEEK_END);
             int count = ftell(file);

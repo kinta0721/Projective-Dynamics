@@ -42,6 +42,7 @@ void Primitive::change_color(const glm::vec3& color)
 
 void Primitive::Draw(const VBO& vbos)
 {
+    //データのが所を知らせる
     // position
     glBindBuffer(GL_ARRAY_BUFFER, vbos.m_vbo);
     glBufferData(GL_ARRAY_BUFFER, 3 * m_positions.size() * sizeof(float), &m_positions[0], GL_STREAM_DRAW);
@@ -69,8 +70,10 @@ void Primitive::Draw(const VBO& vbos)
 
     glBindBuffer(GL_ARRAY_BUFFER, vbos.m_nbo);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
-
-    glm::mat4 transformation(1.0f);
+    glm::mat4 transformation(1.0, 0, 0, 0,    0, 1.0, 0, 0.0,    0.0, 0.0, 1.0, 0.0,    0.0, -10.0, 0.0, 1.0);//(1.0f);
+                  //かえた                                                                                        //
+//	glm::mat4 transformation(0.5 ,- 0.86,  0 ,  0 , 0.86, 0.5, 0,0.0,    0.0, 0.0, 1.0, 0.0,   0.0,0.0,0.0,1.0);//(1.0f);
+//	glm::mat4 transformation(1.0f);// , 0, 0, 0, 0.0, 1.0, 0, -100.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);//(1.0f);
     transformation = glm::translate(transformation, m_pos);
 
     glUniformMatrix4fv(vbos.m_uniform_transformation, 1, false, &transformation[0][0]);
@@ -137,7 +140,7 @@ void Plane::init_visualization()
 
 bool Plane::StaticIntersectionTest(const EigenVector3& p, EigenVector3& normal, ScalarType& dist)
 {
-    ScalarType height = m_pos[1];
+    ScalarType height = m_pos[1]-10;
     dist = p(1) - height - COLLISION_EPSILON;
     normal = EigenVector3(m_normal[0], m_normal[1], m_normal[2]);
 

@@ -24,8 +24,8 @@ typedef enum
 // material type
 typedef enum
 {
-	MATERIAL_COROTATIONAL_LINEAR,
-	MATERIAL_TOTAL_NUM
+    MATERIAL_COROTATIONAL_LINEAR,
+    MATERIAL_TOTAL_NUM
 }MaterialType;
 
 class Simulation
@@ -49,44 +49,44 @@ public:
     void moveSelectedAttachmentConstraintTo(const EigenVector3& target); // move selected attachement constraint to target
 
     // inline functions
-	inline void setReprecomputeFlag() { m_precomputation_flag = false; }
+    inline void setReprecomputeFlag() { m_precomputation_flag = false; }
     inline void setReprefactorFlag()  { m_prefactorization_flag = false; }
     inline void setMesh(Mesh* mesh)   { m_mesh = mesh; }
     inline void setScene(Scene* scene){ m_scene = scene; }
     
 protected:
-	// flags
-	bool m_precomputation_flag;
-	bool m_prefactorization_flag;
+    // flags
+    bool m_precomputation_flag;
+    bool m_prefactorization_flag;
 
-	// variables
-	EigenMatrixXs* m_V;
-	EigenMatrixXi* m_F;
-	EigenMatrixXi* m_T;
-	EigenMatrixXs  m_Vel;
+    // variables
+    EigenMatrixXs* m_V;
+    EigenMatrixXi* m_F;
+    EigenMatrixXi* m_T;
+    EigenMatrixXs  m_Vel;
 
-	SparseMatrix m_MassMat;
-	SparseMatrix m_Inertia;
-	EigenMatrixXs m_ExternalForce;
+    SparseMatrix m_MassMat;
+    SparseMatrix m_Inertia;
+    EigenMatrixXs m_ExternalForce;
 
     // simulation constants
     ScalarType   m_h; // time_step
-	uint m_iterations_per_frame; // for optimization method, number of iterations
+    uint m_iterations_per_frame; // for optimization method, number of iterations
 
-	// material type and integration method
-	IntegrationMethod m_integration_method;
-	MaterialType      m_material_type;
+    // material type and integration method
+    IntegrationMethod m_integration_method;
+    MaterialType      m_material_type;
 
     // simulation constants
     ScalarType m_gravity_constant;
     ScalarType m_damping_coefficient;
 
-	ScalarType m_young,   m_young_old;
-	ScalarType m_poisson, m_poisson_old;
-	ScalarType m_myu;
-	ScalarType m_lambda;
+    ScalarType m_young,   m_young_old;
+    ScalarType m_poisson, m_poisson_old;
+    ScalarType m_myu;
+    ScalarType m_lambda;
 
-	ScalarType m_stiffness_attachment;
+    ScalarType m_stiffness_attachment;
 
     // mesh and scene
     Mesh  *m_mesh;
@@ -96,9 +96,9 @@ protected:
     std::vector<Constraint*> m_constraints;
     AttachmentConstraint*    m_selected_attachment_constraint;
 
-	// for precomputation
-	std::vector<EigenMatrix3> m_B; // Dm inverses
-	std::vector<ScalarType>   m_W; // volume of Tets
+    // for precomputation
+    std::vector<EigenMatrix3> m_B; // Dm inverses
+    std::vector<ScalarType>   m_W; // volume of Tets
 
     // for prefactorization
     SparseMatrix m_LaplacianMat;
@@ -108,12 +108,12 @@ protected:
 private:
 
     // main update sub-routines
-	void preComputation();
+    void preComputation();
 
     void clearConstraints(); // cleanup all constraints
     void setupConstraints(); // initialize constraints
 
-	void convertLameConstant();
+    void convertLameConstant();
 
     void dampVelocity(); // damp velocity at the end of each iteration.
 
@@ -122,24 +122,24 @@ private:
 
     void collisionDetection(EigenMatrixXs& x, EigenMatrixXs& v); // detect collision and return a vector of penetration
 
-	void singularValueDecomp(EigenMatrix3& U, EigenVector3& SIGMA, EigenMatrix3& V, const EigenMatrix3& A);
+    void singularValueDecomp(EigenMatrix3& U, EigenVector3& SIGMA, EigenMatrix3& V, const EigenMatrix3& A);
 
-	// integration scheme
+    // integration scheme
     void integrateOptimizationMethod();
     bool integrateLocalGlobalOneIteration(EigenMatrixXs& x);
 
     // for local global method 
-	inline void computeRotMat(EigenMatrixXs& RotMat, const EigenMatrixXs& Jv);
-	void computeElementLaplacianMat(const EigenMatrix3 &B, const ScalarType W, const unsigned int tet_list[], std::vector<SparseMatrixTriplet>& l_triplets);
+    inline void computeRotMat(EigenMatrixXs& RotMat, const EigenMatrixXs& Jv);
+    void computeElementLaplacianMat(const EigenMatrix3 &B, const ScalarType W, const unsigned int tet_list[], std::vector<SparseMatrixTriplet>& l_triplets);
     void computeElementJacobianMat(const EigenMatrix3 &B, const ScalarType W, const unsigned int tet_list[], const unsigned int ele_num, std::vector<SparseMatrixTriplet>& j_triplets);
-	void volumeconservation(EigenMatrix3 &F, EigenMatrix3 &B, const unsigned int tet_list[], EigenMatrixXs &X);
+    void volumeconservation(EigenMatrix3 &F, EigenMatrix3 &B, const unsigned int tet_list[], EigenMatrixXs &X);
     // matrices and prefactorizations
     void setLaplacianMat();
     void setJacobianMat();
     void prefactorize();
-	double clamp(double n, double lower, double upper);
+    double clamp(double n, double lower, double upper);
 
     // utility functions
     void updatePosAndVel(const EigenMatrixXs NewPos);
-	};
+    };
 #endif

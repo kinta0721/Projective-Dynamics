@@ -2,6 +2,8 @@
 #include <iostream>
 #include <string>
 
+
+
 //----------Headers--------------//
 #include "global_headers.h"
 #include "math_headers.h"
@@ -25,6 +27,7 @@ RenderWrapper* g_renderer;
 Scene* g_scene;
 Mesh* g_mesh;
 Simulation * g_simulation;
+Primitive* primitive;
 
 //----------Global Parameters----------------//
 int g_screen_width = DEFAULT_SCREEN_WIDTH;
@@ -160,6 +163,7 @@ void display() {
     // Draw world and cloth (using programmable shaders)
     g_renderer->ActivateShaderprog();
     g_scene->Draw(g_renderer->getVBO());
+
     g_mesh->draw(g_renderer->getVBO(), \
                  g_show_wireframe, \
                  g_show_texture & g_texture_load_succeed);
@@ -361,8 +365,16 @@ void init()
 
     // scene init
     fprintf(stdout, "Initializing scene...\n");
-    g_scene = new Scene(DEFAULT_SCENE_FILE);
+   g_scene = new Scene(DEFAULT_SCENE_FILE);
+   
+//	Primitive* primitive;
+	primitive = new  Plane();
+//	primitive = new ObjMesh(OBJ_ARMADILLO);
+	g_scene->InsertPrimitve(primitive);
+//  g_scene = new Sphere();
 
+	
+//	g_sphere = new Sphere();
     // mesh init
     fprintf(stdout, "Initializing mesh...\n");
     g_mesh = new Mesh();
@@ -419,9 +431,11 @@ void TW_CALL reset_simulation(void*)
     // reset simulation
     g_simulation->setMesh(g_mesh);
     g_simulation->setScene(g_scene);
+	g_simulation->reset();
 
-    g_simulation->reset();
 
+
+	
     // reset config, (config bar is recommended to reset last)
     g_config_bar->reset();
 }
