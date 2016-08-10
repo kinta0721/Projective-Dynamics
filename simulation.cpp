@@ -445,8 +445,8 @@ bool Simulation::integrateLocalGlobalOneIteration(EigenMatrixXs& X)
 
 
 
-//
-//	Xの更新体積保存
+
+	//Xの更新体積保存
 //
 //#pragma omp parallel for
 //
@@ -488,7 +488,7 @@ bool Simulation::integrateLocalGlobalOneIteration(EigenMatrixXs& X)
 
 #pragma omp parallel for
 			for (k = 0; k < 3; k++) {//ヤコビアンの行情報
-				double rjk = RotMat(3 * i + j, k);// *2.0;
+				double rjk = RotMat(3 * i + j, k);
 					for (int p = 0; p < m_mesh->m_vert_num; p++) {
 
 						b(p, j) = b(p, j) + m_JacobianMat.coeff(3 * i + k, p) *rjk;
@@ -542,7 +542,7 @@ std::cout << "writingX" << std::endl;//sum1:x2x4の係数
 	for (int i = 0; i < m_mesh->m_vert_num; i++) {
 			for (int j = 0; j < 3; j++) {
 
-			//	b(i, j) = b(i, j);// +inertial(i, j) + m_ExternalForce.coeff(i, j);
+				b(i, j) = b(i, j)+inertial(i, j) + m_ExternalForce.coeff(i, j);
 
 		}
 
@@ -842,7 +842,7 @@ void Simulation::prefactorize()
 
 	// Hint: "A = ?"
 	setLaplacianMat();
-	A = m_LaplacianMat;// *h2;// +m_MassMat / h2;
+	A = m_LaplacianMat+m_MassMat / h2;
 	
 	factorizeDirectSolverLLT(A, m_prefactored_LLTsolver);
 

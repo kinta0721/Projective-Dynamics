@@ -61,7 +61,11 @@ void AttachmentConstraint::computeJVector(const EigenMatrixXs& X, EigenMatrixXs&
 	// Hint: use "v"
 	for (int i = 0; i < 3; i++) {
 
-		b(m_index, i) = X(m_index, i) + v(i);// -m_ExternalForce.coeff(i, j);
+		b(m_index, i) = X(m_index, i) - v(i) ;// m_ExternalForce.coeff(i, j);//“à—Í
+
+	//	X(m_index, i) = X(m_index, i) - m_fixd_point(i);
+			
+			;// = b(m_index, i) + v(i);// -m_ExternalForce.coeff(i, j);
 
 	}
 }
