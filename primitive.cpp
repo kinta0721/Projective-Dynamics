@@ -56,7 +56,7 @@ void Primitive::Draw(const VBO& vbos)
     glBufferData(GL_ARRAY_BUFFER, 3 * m_normals.size() * sizeof(float), &m_normals[0], GL_STREAM_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbos.m_ibo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_indices.size() * sizeof(unsigned short), &m_indices[0], GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, (m_indices.size() ) * sizeof(unsigned short), &m_indices[0], GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
@@ -70,10 +70,10 @@ void Primitive::Draw(const VBO& vbos)
 
     glBindBuffer(GL_ARRAY_BUFFER, vbos.m_nbo);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glm::mat4 transformation(1.0, 0, 0, 0,    0, 1.0, 0, 0.0,    0.0, 0.0, 1.0, 0.0,    0.0, -10.0, 0.0, 1.0);//(1.0f);
+   // glm::mat4 transformation(1.0, 0, 0, 0,    0, 1.0, 0, 0.0,    0.0, 0.0, 1.0, 0.0,    0.0, 0.0, 0.0, 1.0);//(1.0f);
                   //‚©‚¦‚½                                                                                        //
 //	glm::mat4 transformation(0.5 ,- 0.86,  0 ,  0 , 0.86, 0.5, 0,0.0,    0.0, 0.0, 1.0, 0.0,   0.0,0.0,0.0,1.0);//(1.0f);
-//	glm::mat4 transformation(1.0f);// , 0, 0, 0, 0.0, 1.0, 0, -100.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);//(1.0f);
+	glm::mat4 transformation(1.0f);// , 0, 0, 0, 0.0, 1.0, 0, -100.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);//(1.0f);
     transformation = glm::translate(transformation, m_pos);
 
     glUniformMatrix4fv(vbos.m_uniform_transformation, 1, false, &transformation[0][0]);
@@ -97,7 +97,7 @@ void Plane::init_visualization()
     m_normals.clear();
     m_indices.clear();
 
-    glm::vec3 center(0.0, 0.0, 0.0);
+    glm::vec3 center(0.0, -5.0, 0.0);
     glm::vec3 local_x, local_z;
     local_x = glm::cross(m_normal, glm::vec3(0.0, 0.0, 1.0));
     if(glm::length(local_x) < 0.00001f)
@@ -109,29 +109,32 @@ void Plane::init_visualization()
     unsigned int slice = 24;
 
     glm::vec3 vertex(center);
-    m_positions.push_back(center);
-    m_normals.push_back(m_normal);
+	m_positions.push_back(center);
+	m_positions.push_back(vertex);
+	m_normals.push_back(m_normal);
     m_colors.push_back(mat_color);
 
     float delta = 360.0 / slice;
     float radius = 100.0;
     glm::vec3 local_pos;
-    for(float theta = 0.0; theta < 359.99; theta += delta)
+	//glm::vec3 vertex;
+    for(float theta = 0.01; theta < 375; theta += delta)
     {
         local_pos.x = radius * cos(glm::radians(theta));
         local_pos.z = radius * sin(glm::radians(theta));
 
-        vertex = local_pos.x * local_x - local_pos.z * local_z + center;
-
+		vertex = local_pos.x * local_x - local_pos.z * local_z + center;// -glm::vec3(0.0, 5.0, 0.0);
         m_positions.push_back(vertex);
+
         m_normals.push_back(m_normal);
         m_colors.push_back(mat_color);
     }
-    for(unsigned int i = 0; i < slice; ++i)
+
+    for(unsigned int i = 1; i <= slice; ++i)
     {
         m_indices.push_back(0);
+        m_indices.push_back(i);
         m_indices.push_back(i + 1);
-        m_indices.push_back(i + 2);
     }
     m_indices.push_back(0);
     m_indices.push_back(slice);
@@ -140,7 +143,7 @@ void Plane::init_visualization()
 
 bool Plane::StaticIntersectionTest(const EigenVector3& p, EigenVector3& normal, ScalarType& dist)
 {
-    ScalarType height = m_pos[1]-10;
+	ScalarType height = m_pos[1] -5.0;
     dist = p(1) - height - COLLISION_EPSILON;
     normal = EigenVector3(m_normal[0], m_normal[1], m_normal[2]);
 

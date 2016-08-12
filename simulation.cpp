@@ -1,5 +1,5 @@
 #pragma warning( disable : 4996)
-
+//good4
 #include "simulation.h"
 #include "timer_wrapper.h"
 #include <fstream>
@@ -10,7 +10,7 @@
 using namespace std;
 
 int a = 0;
-
+int step = 0;
 Simulation::Simulation()
 
 {
@@ -36,16 +36,21 @@ void Simulation::reset()
 
     setReprecomputeFlag();
     setReprefactorFlag();
-    convertLameConstant();
+   convertLameConstant();
     setupConstraints();
     preComputation();
-
+	prefactorize();//LÇÃåvéZ
     m_selected_attachment_constraint = NULL;
 }
 //test
+
 void Simulation::update()
 {
-    //preComputation();
+	std::cout << "update Simulation ..." << std::endl;
+	
+	if (step == 0) {
+		prefactorize();
+	}
     // update inertia term
     computeInertia();
     
@@ -64,20 +69,25 @@ void Simulation::update()
     // Inprement Here !! //
     // Hint: use "collisionDetection"
     // This is optional (you don't have to implement first)
-    EigenMatrixXs penetration;
-    penetration.resize(m_mesh->m_vert_num, 3);
 
+    EigenMatrixXs penetration;
+  
     collisionDetection(*m_V, penetration);
-    (*m_V) -= penetration;
+    (*m_V) -= (penetration);
 
     // update velocity and damp
+
+
+
+	//
     dampVelocity();
+	step++;
 }
 
 void Simulation::convertLameConstant()
 {
-    m_young = 20;
-    m_poisson = 0;
+    m_young = 100;
+    m_poisson = 0.5;
     m_myu = m_young / (2.f * (1.f + m_poisson));
     m_lambda = m_young * m_poisson / ((1.f + m_poisson)*(1.f - 2.f*m_poisson));
 }
@@ -132,8 +142,8 @@ bool Simulation::tryToToggleAttachmentConstraint(const EigenVector3& p0, const E
     EigenVector3 p1;
 
     ScalarType ray_point_dist;
-    ScalarType min_dist = 100.0;
-    unsigned int best_candidate = 0;
+	ScalarType min_dist = 10;// 100.0;
+	unsigned int best_candidate = -1;// 0;
     // first pass: choose nearest point
     for (unsigned int i = 0; i != m_mesh->m_vert_num; i++)
     {
@@ -178,6 +188,9 @@ bool Simulation::tryToToggleAttachmentConstraint(const EigenVector3& p0, const E
                 break;
             }
         }
+
+
+
     }
     if (!current_state_on)
     {
@@ -205,14 +218,16 @@ void Simulation::unselectAttachmentConstraint()
 void Simulation::addAttachmentConstraint(uint vertex_index)
 {
     EigenVector3 p = m_mesh->m_V.row(vertex_index).transpose();
-    AttachmentConstraint* ac = new AttachmentConstraint(&m_stiffness_attachment, vertex_index, p);
+    AttachmentConstraint* ac = new AttachmentConstraint( &m_stiffness_attachment, vertex_index, p);
     m_constraints.push_back(ac);
 }
 
 void Simulation::moveSelectedAttachmentConstraintTo(const EigenVector3& target)
 {
-    if (m_selected_attachment_constraint)
-        m_selected_attachment_constraint->setFixedPoint(target);
+	if (m_selected_attachment_constraint)
+	{
+		m_selected_attachment_constraint->setFixedPoint(target);
+	}
 }
 
 void Simulation::clearConstraints()
@@ -254,34 +269,46 @@ void Simulation::preComputation()
 
 
     for ( int i= 0; i < m_T->rows(); ++i) {
-        EigenMatrix3 m_B_element;
-        ScalarType   m_W_element;
-#pragma omp parallel for	
-        for (j = 0; j < 3; j++) {
-#pragma omp parallel for	
-            for ( p = 0; p < 3; p++) {
-                m_B_element(p, j) = (*m_V)((*m_T)(i, j), p) - (*m_V)((*m_T)(i, 3), p);
+//        EigenMatrix3 m_B_element;
+//        ScalarType   m_W_element;
+//#pragma omp parallel for	
+//        for (j = 0; j < 3; j++) {
+//#pragma omp parallel for	
+//           /* for ( p = 0; p < 3; p++) {
+//                m_B_element(p, j) = (*m_V)((*m_T)(i, j), p) - (*m_V)((*m_T)(i, 3), p);
+//
+//            }
+//*/
+//
+//
+//        }
+//        
+//    m_W_element = 1.0 / 6.0*  fabs((m_B_element).determinant());//*/
+////		m_W_element = 1 / 6.0*  (m_B_element).determinant();//*/
+//        m_B.push_back(m_B_element.inverse());
+//        m_W.push_back(m_W_element);
 
-            }
+		EigenMatrix3 D;
+		EigenVector3 x1, x2, x3, x4;
+		x1 = m_V->row((*m_T)(i, 0)).transpose();
+		x2 = m_V->row((*m_T)(i, 1)).transpose();
+		x3 = m_V->row((*m_T)(i, 2)).transpose();
+		x4 = m_V->row((*m_T)(i, 3)).transpose();
 
+		D.col(0) = x1 - x4;
+		D.col(1) = x2 - x4;
+		D.col(2) = x3 - x4;
 
-
-        }
-        
-    m_W_element = 1 / 6.0*  fabs((m_B_element).determinant());//*/
-//		m_W_element = 1 / 6.0*  (m_B_element).determinant();//*/
-        m_B.push_back(m_B_element.inverse());
-        m_W.push_back(m_W_element);
+		m_B.push_back(D.inverse());
+		m_W.push_back(fabs((1.0f / 6.0f)*D.determinant()));
     }
         //set MassMatrix
         igl::massmatrix(*m_V, *m_T, igl::MASSMATRIX_TYPE_DEFAULT, m_MassMat);
-        ScalarType ModelVolume;
+		ScalarType ModelVolume;
         for (uint i = 0; i < m_T->rows(); ++i) { ModelVolume += m_W[i]; }
         m_MassMat *= (m_mesh->m_total_mass) / ModelVolume;
     
-        prefactorize();//LÇÃåvéZ
-        setJacobianMat();//jacobian åvéZ
- 
+    
 
         m_precomputation_flag = true;
         std::cout << "preComputing...end" << std::endl;
@@ -375,10 +402,10 @@ void Simulation::computeExternalForce()
     // gravity
     // Inprement Here !! //
     // Hint: use "m_ExternalForce(i, 1) = ?"
-    m_gravity_constant = 100;
+   
     for (unsigned int i = 0; i < m_mesh->m_vert_num; ++i)
     {
-    m_ExternalForce(i, 1) =  -1.0*m_MassMat.coeffRef(i , i) *  m_gravity_constant;
+    m_ExternalForce(i, 1) =  -1.0*m_MassMat.coeff(i , i) *  m_gravity_constant;
     }
 }
 
@@ -390,14 +417,24 @@ void Simulation::collisionDetection(EigenMatrixXs& x, EigenMatrixXs& v)
         EigenVector3 normal;
         ScalarType dist;
         v.resize(m_mesh->m_vert_num, 3);
-		
+	    v.setZero();
+		int check = 0;
         for (unsigned int i = 0; i < m_mesh->m_vert_num; ++i){
         EigenVector3 X=(x.row(i)).transpose();
         if (m_scene->StaticIntersectionTest(X, normal, dist))
             {
-            v.block(i, 0, 1, 3) += ((dist)*normal).transpose();
-            }
+            v.block(i, 0, 1, 3) += ((dist)*normal).transpose();//ÇﬂÇËçûÇ›ÇíºÇ∑ï™
+			m_Vel(i, 1) = -1.0*m_Vel(i, 1);
+			//check = 1;
+		
+		
+		}/*
+		if (check == 1) {
+			for (unsigned int i = 0; i < m_mesh->m_vert_num; ++i) {
+				m_Vel(i, 1) = -1.0*m_Vel(i, 1);
 
+			}
+		}*/
 
         }
 
@@ -413,7 +450,6 @@ void Simulation::integrateOptimizationMethod()
     EigenMatrixXs pos_next = m_Inertia;//ä¥ê´óÕÇÃÇ›
     std::cout << "posnext" << std::endl;
 
-    
     // while loop until converge or exceeds maximum iterations
     bool converge = false;
     
@@ -433,7 +469,7 @@ void Simulation::integrateOptimizationMethod()
     
 }
 bool Simulation::integrateLocalGlobalOneIteration(EigenMatrixXs& X)
-{
+{/*
     a++;
 
     std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
@@ -443,7 +479,7 @@ bool Simulation::integrateLocalGlobalOneIteration(EigenMatrixXs& X)
     sprintf(fname, "vert%d.csv", a);
     std::ofstream ofs(fname);
     sprintf(fname1, "rotmat%d.csv", a);
-    std::ofstream ofs1(fname1);
+    std::ofstream ofs1(fname1);*/
 
     //// local step
     EigenMatrixXs RotMat(m_T->rows() * 3, 3);       // (#TetNum*dim) * dim
@@ -451,7 +487,7 @@ bool Simulation::integrateLocalGlobalOneIteration(EigenMatrixXs& X)
     
     computeRotMat(RotMat, Jv);
 
-    for (int l = 0; l < m_T->rows(); l++) {
+  /*  for (int l = 0; l < m_T->rows(); l++) {
 
         for (int j = 0; j < 3; j++) {
             for (int k = 0; k < 3; k++) {
@@ -462,25 +498,25 @@ bool Simulation::integrateLocalGlobalOneIteration(EigenMatrixXs& X)
         ofs1 << std::endl;
     }
 
+*/
 
 
+//	XÇÃçXêVëÃêœï€ë∂
+		int ini;
+#pragma omp parallel for
+	
+	for ( ini = 0; ini< m_T->rows(); ini++) {
 
-    //XÇÃçXêVëÃêœï€ë∂
-//
-//#pragma omp parallel for
-//
-//	for (int i = 0; i < m_T->rows(); i++) {
-//
-//
-//		EigenMatrix3 F = (Jv.block(i * 3, 0, 3, 3)).transpose();
-//		EigenMatrix3 B = m_B[i].inverse();
-//		uint tet_list[4] = { (*m_T)(i, 0), (*m_T)(i, 1),(*m_T)(i, 2), (*m_T)(i, 3) };
-//		
-//		volumeconservation(F, B, tet_list, X);
-//
-//	}
-//
-//
+
+		EigenMatrix3 F = (Jv.block(ini * 3, 0, 3, 3)).transpose();
+		EigenMatrix3 B = m_B[ini].inverse();
+		uint tet_list[4] = { (*m_T)(ini, 0), (*m_T)(ini, 1),(*m_T)(ini, 2), (*m_T)(ini, 3) };
+		
+		volumeconservation(F, B, tet_list, X);
+
+	}
+
+
 
 
     std::cout << "local step"<< std::endl;
@@ -497,8 +533,7 @@ bool Simulation::integrateLocalGlobalOneIteration(EigenMatrixXs& X)
 
     int i, j,k;
 #pragma omp parallel for
-    
-
+  
     for (i = 0; i < m_T->rows(); ++i)
     {
 
@@ -521,26 +556,19 @@ bool Simulation::integrateLocalGlobalOneIteration(EigenMatrixXs& X)
     
     }
 
-    for (int i = 0; i < m_mesh->m_vert_num; i++) {
+    //for (int i = 0; i < m_mesh->m_vert_num; i++) {
 
-        for (int j = 0; j < 3; j++) {
+    //    for (int j = 0; j < 3; j++) {
 
-            ofs << b(i, j) << ",";
+    //        ofs << b(i, j) << ",";
 
-        }
-        ofs << std::endl;
+    //    }
+    //    ofs << std::endl;
 
-    }  
+    //}  
 
 std::cout << "writingX" << std::endl;//sum1:x2x4ÇÃåWêî
 
-    
-    // add attachment constraint
-    for (std::vector<Constraint*>::iterator it_c = m_constraints.begin(); it_c != m_constraints.end(); ++it_c)
-    {
-        (*it_c)->computeJVector(X, b);
-    
-    }
 
     // add effect of inertia
     // Inprement Here !! //
@@ -552,6 +580,9 @@ std::cout << "writingX" << std::endl;//sum1:x2x4ÇÃåWêî
     inertial.setZero();
     std::cout << "computing inertia" << std::endl;//sum1:x2x4ÇÃåWêî
 
+												  // add attachment constraint
+
+
     for (int i = 0; i < m_mesh->m_vert_num; i++) {
         for (int j = 0; j < 3; j++) {
             inertial.coeffRef(i, j) = m_MassMat.coeff(i, i)*m_Inertia.coeff(i, j) / (m_h*m_h);
@@ -561,20 +592,25 @@ std::cout << "writingX" << std::endl;//sum1:x2x4ÇÃåWêî
     for (int i = 0; i < m_mesh->m_vert_num; i++) {
             for (int j = 0; j < 3; j++) {
 
-                b(i, j) = b(i, j)+inertial(i, j) + m_ExternalForce.coeff(i, j);
+				b(i, j) = b(i, j) + inertial(i, j)+m_ExternalForce.coeff(i, j);
 
         }
 
     }
+	for (std::vector<Constraint*>::iterator it_c = m_constraints.begin(); it_c != m_constraints.end(); ++it_c)
+	{
+		(*it_c)->computeJVector(X, b);
+
+	}
 
     
     std::cout << "computing X" << std::endl;//sum1:x2x4ÇÃåWêî
 
     for (int i = 0; i < 3; i++) {
         X.col(i) = m_prefactored_LLTsolver.solve(b.col(i));
-        //X = m_prefactored_LLTsolver.solve(b);
+        
     }
-    for (int i = 0; i < m_mesh->m_vert_num; i++) {
+  /*  for (int i = 0; i < m_mesh->m_vert_num; i++) {
 
         for (int j = 0; j < 3; j++) {
 
@@ -584,11 +620,8 @@ std::cout << "writingX" << std::endl;//sum1:x2x4ÇÃåWêî
         ofs << std::endl;
 
     }
-
-//	}
-
-//	std::cout << "global step" << std::endl;
-
+*/
+//X = m_prefactored_LLTsolver.solve(b);
 return false;
 }
 
@@ -606,12 +639,12 @@ void Simulation::computeRotMat(EigenMatrixXs& RotMat, const EigenMatrixXs& Jv)
     int num = 0;
 #pragma omp parallel for
 
-    for (int i = 0; i < m_T->rows(); i++) {
+    for (num = 0; num < m_T->rows(); num++) {
 
         EigenMatrix3 F;
         EigenMatrix3 U, V;
         F.setZero();
-        F = (Jv.block(i * 3, 0, 3, 3)).transpose();
+        F = (Jv.block(num * 3, 0, 3, 3)).transpose();
         
 
     ///constraintÇ¬ÇØÇÈjvÇ™çXêVÇ≥ÇÍÇÈ
@@ -619,7 +652,7 @@ void Simulation::computeRotMat(EigenMatrixXs& RotMat, const EigenMatrixXs& Jv)
         Eigen::JacobiSVD< EigenMatrix3 >svd(F, Eigen::ComputeFullU | Eigen::ComputeFullV);
         U = svd.matrixU();
         V = svd.matrixV();
-        RotMat.block(3 * i, 0, 3, 3) =U * (V.transpose());
+        RotMat.block(3 * num, 0, 3, 3) =U * (V.transpose());
 
         
     }
@@ -780,6 +813,11 @@ void Simulation::computeElementLaplacianMat(const EigenMatrix3 &B, const ScalarT
             }
             l_triplets.push_back(SparseMatrixTriplet(tet_list[3], tet_list[3], m_myu * W * 1.0*beki_sum *beki_sum));
         }
+
+
+
+
+
 }
 
 
@@ -791,11 +829,11 @@ void Simulation::computeElementJacobianMat(const EigenMatrix3 &B, const ScalarTy
     int i,j;
 //	m_myu = 2.0;
 
-        for ( i = 0; i < 3; i++) {//xyz
+        for ( j = 0; j< 3; j++) {//xyz
 
-            for (j = 0; j < 3; j++) {//1234
-                j_triplets.push_back(SparseMatrixTriplet(ele_num * 3 + i, tet_list[j], 1.0* m_myu * W * B(j, i)));
-                j_triplets.push_back(SparseMatrixTriplet(ele_num * 3 + i, tet_list[3], -1.0 * m_myu * W * B(j, i)));
+            for (i = 0; i < 3; i++) {//1234
+                j_triplets.push_back(SparseMatrixTriplet(ele_num * 3 + i, tet_list[j], -1.0* m_myu * W * B(j, i)));
+                j_triplets.push_back(SparseMatrixTriplet(ele_num * 3 + i, tet_list[3], 1.0 * m_myu * W * B(j, i)));
             }
         }
     
@@ -805,7 +843,11 @@ void Simulation::computeElementJacobianMat(const EigenMatrix3 &B, const ScalarTy
 #pragma region matrices and prefactorization
 void Simulation::setLaplacianMat()
 {
+
+
     m_LaplacianMat.resize(m_mesh->m_vert_num, m_mesh->m_vert_num);
+	m_LaplacianMat.setZero();
+
     std::vector<SparseMatrixTriplet> l_triplets;
     l_triplets.clear();
     for (uint i = 0; i<m_T->rows(); ++i)
@@ -830,7 +872,7 @@ void Simulation::setJacobianMat()
     m_JacobianMat.resize(m_T->rows() * 3, m_mesh->m_vert_num);
     std::cout << "ÉÑÉRÉrÉAÉìåvéZ" << std::endl;
 
-    //	m_JacobianMat.setZero();
+    m_JacobianMat.setZero();
 
      
     std::vector<SparseMatrixTriplet> j_triplets;
@@ -853,15 +895,16 @@ void Simulation::prefactorize()
     SparseMatrix A;
     ScalarType h2 = m_h*m_h;
     A.resize(m_mesh->m_vert_num, m_mesh->m_vert_num);
-
-
+	A.setZero();
         std::cout << "preFactorizing ..." << std::endl;
 
     // Inprement Here !! //Fpre
 
     // Hint: "A = ?"
+	setJacobianMat();
     setLaplacianMat();
-    A = m_LaplacianMat+m_MassMat / h2;
+	//jacobian åvéZ
+	A = m_LaplacianMat +m_MassMat / h2;
     
     factorizeDirectSolverLLT(A, m_prefactored_LLTsolver);
 

@@ -41,7 +41,7 @@ bool g_show_wireframe = false;
 bool g_show_texture = false;
 bool g_texture_load_succeed = false;
 
-//----------Mouse Control--------------------//
+//----------Control--------------------//
 int g_mouse_old_x, g_mouse_old_y;
 int g_mouse_wheel_pos;
 unsigned char g_button_mask = 0x00;
@@ -367,14 +367,10 @@ void init()
     fprintf(stdout, "Initializing scene...\n");
    g_scene = new Scene(DEFAULT_SCENE_FILE);
    
-//	Primitive* primitive;
 	primitive = new  Plane();
-//	primitive = new ObjMesh(OBJ_ARMADILLO);
-	g_scene->InsertPrimitve(primitive);
-//  g_scene = new Sphere();
 
-	
-//	g_sphere = new Sphere();
+	g_scene->InsertPrimitve(primitive);
+
     // mesh init
     fprintf(stdout, "Initializing mesh...\n");
     g_mesh = new Mesh();
@@ -428,7 +424,9 @@ void TW_CALL reset_simulation(void*)
     g_config_bar->loadSettings();
     g_mesh->reset();
 
-    // reset simulation
+    // reset simulationFcol
+
+
     g_simulation->setMesh(g_mesh);
     g_simulation->setScene(g_scene);
 	g_simulation->reset();
